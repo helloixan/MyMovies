@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'movie_model.dart';
+import 'movie_database.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,20 +22,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Movie {
-  final String title;
-  final String year;
-  final String review;
-  final double rating;
-
-  Movie({
-    required this.title,
-    required this.year,
-    required this.review,
-    required this.rating,
-  });
-}
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
   final String title;
@@ -45,6 +33,20 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final List<Movie> _movies = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadMovies();
+  }
+
+  Future<void> _loadMovies() async {
+    final movies = await MovieDatabase.instance.getAllMovies();
+    setState(() {
+      _movies.clear();
+      _movies.addAll(movies);
+    });
+  }
+
   void _showAddMovieDialog() {
     final titleController = TextEditingController();
     final yearController = TextEditingController();
@@ -54,68 +56,71 @@ class _MyHomePageState extends State<MyHomePage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Tambah Film'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Judul Film'),
-                ),
-                TextField(
-                  controller: yearController,
-                  decoration: const InputDecoration(labelText: 'Tahun Rilis'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: reviewController,
-                  decoration: const InputDecoration(labelText: 'Ulasan'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 10),
-                Text('Rating: ${rating.toStringAsFixed(1)}'),
-                Slider(
-                  value: rating,
-                  min: 1.0,
-                  max: 5.0,
-                  divisions: 4,
-                  label: rating.toStringAsFixed(1),
-                  onChanged: (value) {
-                    setState(() {
-                      rating = value;
-                    });
-                  },
-                ),
-              ],
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Tambah Film'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: 'Judul Film'),
+                  ),
+                  TextField(
+                    controller: yearController,
+                    decoration: const InputDecoration(labelText: 'Tahun Rilis'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: reviewController,
+                    decoration: const InputDecoration(labelText: 'Ulasan'),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Rating: ${rating.toStringAsFixed(1)}'),
+                  Slider(
+                    value: rating,
+                    min: 1.0,
+                    max: 5.0,
+                    divisions: 4,
+                    label: rating.toStringAsFixed(1),
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        rating = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty &&
-                    yearController.text.isNotEmpty &&
-                    reviewController.text.isNotEmpty) {
-                  setState(() {
-                    _movies.add(Movie(
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (titleController.text.isNotEmpty &&
+                      yearController.text.isNotEmpty &&
+                      reviewController.text.isNotEmpty) {
+                    final newMovie = Movie(
                       title: titleController.text,
                       year: yearController.text,
                       review: reviewController.text,
                       rating: rating,
-                    ));
-                  });
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
+                    );
+
+                    await MovieDatabase.instance.insertMovie(newMovie);
+                    await _loadMovies();
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: const Text('Simpan'),
+              ),
+            ],
+          );
+        });
       },
     );
   }
